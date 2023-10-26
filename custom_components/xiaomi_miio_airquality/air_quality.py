@@ -19,11 +19,12 @@ from .const import (
     DATA_KEY,
     DOMAIN,
     MODELS_MIIO,
+    MODELS_MIOT
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-SCAN_INTERVAL = timedelta(seconds=90)
+SCAN_INTERVAL = timedelta(seconds=60)
 
 
 async def async_setup_entry(
@@ -42,6 +43,10 @@ async def async_setup_entry(
         entities = []
 
         if model in MODELS_MIIO:
+            entities.extend(
+                [XiaomiAirQuality(entry.options, name, unique_id, airquality)]
+            )
+        if model in MODELS_MIOT:
             entities.extend(
                 [XiaomiAirQuality(entry.options, name, unique_id, airquality)]
             )
@@ -76,6 +81,7 @@ class XiaomiAirQuality(AirQualityEntity):
         self._humidity = None
         self._state = None
         self._should_poll = True
+        self._available = False
 
     @property
     def should_poll(self):
@@ -125,14 +131,18 @@ class XiaomiAirQuality(AirQualityEntity):
         """Return the total volatile organic compounds."""
         return self._total_volatile_organic_compounds
 
+    async def async_added_to_hass(self):
+        """ add to hass """
+        self.hass.data[DATA_KEY][self._host]["status"] = \
+            await self.hass.async_add_executor_job(self._airquality.status)
+        await super().async_added_to_hass()
+
     async def async_update(self):
         """Fetch state from the device."""
 
         try:
-            if getattr(self.hass.data[DATA_KEY][self._host], "status", None):
-                state = self.hass.data[DATA_KEY][self._host].status
-            else:
-                state = await self.hass.async_add_executor_job(self._airquality.status)
+            state = await self.hass.async_add_executor_job(self._airquality.status)
+            self.hass.data[DATA_KEY][self._host]["status"] = state
             _LOGGER.debug("Got new state: %s", state)
 
             self._carbon_dioxide_equivalent = getattr(state, "co2", None)

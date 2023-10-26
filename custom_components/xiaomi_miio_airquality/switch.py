@@ -119,7 +119,15 @@ class XiaomiAirQualitySwitch(SwitchEntity):
                 if result == "ok":
                     return True
                 return False
-            return result[0].get('code', -1) == 0
+            elif isinstance(result, list):
+                if len(result) >= 1:
+                    return result[0].get('code', -1) == 0
+                return True
+            elif isinstance(result, dict):
+                return result.get('code', -1) == 0
+            else:
+                return False
+                
         except DeviceException as exc:
             if self._available:
                 _LOGGER.error(mask_error, exc)
@@ -157,8 +165,8 @@ class XiaomiAirQualitySwitch(SwitchEntity):
             return
 
         try:
-            if getattr(self.hass.data[DATA_KEY][self._host], "status", None):
-                state = self.hass.data[DATA_KEY][self._host].status
+            if self.hass.data[DATA_KEY][self._host].get("status", None):
+                state = self.hass.data[DATA_KEY][self._host]["status"]
             else:
                 state = await self.hass.async_add_executor_job(self._airquality.status)
             _LOGGER.debug("Got new state: %s", state)

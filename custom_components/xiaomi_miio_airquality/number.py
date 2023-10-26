@@ -1,10 +1,11 @@
 """Support for Xiaomi Mi/QingPing Air Quality Monitor service."""
 import logging
 from datetime import timedelta
+from functools import partial
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.number import NumberEntity
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers import device_registry as dr
 from homeassistant.const import (
@@ -17,11 +18,10 @@ from .const import (
     CONF_MODEL,
     DATA_KEY,
     DOMAIN,
-    AIRQUALITY_SENSORS,
-    MODELS_ALL_DEVICES,
+    AIRQUALITY_NUMBERS,
+    MODELS_MIOT,
     AVAILABLE_FEATURES,
-    BATTERY_STATE_LITE,
-    XiaomiAirQualitySensorDescription
+    XiaomiAirQualityNumberDescription
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ SCAN_INTERVAL = timedelta(seconds=90)
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigType, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up the Xiaomi Mi/QingPing Air Quality Monitor sensor."""
+    """Set up the Xiaomi Mi/QingPing Air Quality Monitor Number."""
 
     host = entry.options[CONF_HOST]
     model = entry.options[CONF_MODEL]
@@ -43,27 +43,27 @@ async def async_setup_entry(
     try:
         entities = []
 
-        for description in AIRQUALITY_SENSORS:
-            if model in MODELS_ALL_DEVICES:
+        for description in AIRQUALITY_NUMBERS:
+            if model in MODELS_MIOT:
                 features = AVAILABLE_FEATURES.get(model, [])
                 if features:
                     for feature in features:
                         if feature == description.key:
                             entities.extend(
-                                [XiaomiAirQualitySensor(entry.options, description, name, unique_id, airquality)]
+                                [XiaomiAirQualityNumber(entry.options, description, name, unique_id, airquality)]
                             )
                 else:
                     entities.extend(
-                        [XiaomiAirQualitySensor(entry.options, description, name, unique_id, airquality)]
+                        [XiaomiAirQualityNumber(entry.options, description, name, unique_id, airquality)]
                     )
 
         async_add_entities(entities)
     except AttributeError as ex:
         _LOGGER.error(ex)
 
-class XiaomiAirQualitySensor(SensorEntity):
-    """Implementation of a Xiaomi Mi/QingPing Air Quality Monitor sensor."""
-    entity_description: XiaomiAirQualitySensorDescription
+class XiaomiAirQualityNumber(NumberEntity):
+    """Implementation of a Xiaomi Mi/QingPing Air Quality Monitor Number."""
+    entity_description: XiaomiAirQualityNumberDescription
 
     def __init__(self, entry_data, description, name, unique_id, airquality):
         self.entity_description = description
@@ -80,20 +80,19 @@ class XiaomiAirQualitySensor(SensorEntity):
         self._state = None
         self._attr_native_unit_of_measurement = description.native_unit_of_measurement
         self._attr_device_class = description.device_class
-        self._attr_state_class = description.state_class
 
     @property
     def name(self):
-        """Return the name of the sensor."""
+        """Return the name of the Number."""
         return "{} {}".format(self._name, self.entity_description.name)
 
     @property
     def unique_id(self):
-        """Return the unique of the sensor."""
+        """Return the unique of the Number."""
         return "{}_{}".format(self._name, self.entity_description.key)
 
     def friendly_name(self):
-        """Return the friendly name of the sensor."""
+        """Return the friendly name of the Number."""
         return "{}".format(self.entity_description.name)
 
     @property
@@ -116,8 +115,44 @@ class XiaomiAirQualitySensor(SensorEntity):
 
     @property
     def native_value(self):
-        """Return the state of the sensor."""
+        """Return the state of the Number."""
         return self._state
+
+    async def _try_command(self, mask_error, func, *args, **kwargs):
+        """Call a airquality command handling error messages."""
+        try:
+            result = await self.hass.async_add_executor_job(
+                partial(func, *args, **kwargs)
+            )
+
+            _LOGGER.debug("Response received from airquality: %s", result)
+            if isinstance(result, str):
+                if result == "ok":
+                    return True
+                return False
+            elif isinstance(result, list):
+                if len(result) >= 1:
+                    return result[0].get('code', -1) == 0
+                return True
+            elif isinstance(result, dict):
+                return result.get('code', -1) == 0
+            else:
+                return False
+                
+        except DeviceException as exc:
+            if self._available:
+                _LOGGER.error(mask_error, exc)
+                self._available = False
+
+            return False
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Set new value."""
+        await self._try_command(
+            "Setting the airquality value on failed.",
+            self._airquality.set_value,
+            self._attr,
+            value)
 
     async def async_update(self):
         """Fetch state from the device."""
@@ -134,15 +169,7 @@ class XiaomiAirQualitySensor(SensorEntity):
             _LOGGER.debug("Got new state: %s", state)
 
             self._available = True
-            if getattr(state, "tvoc_unit", None):
-                self._attr_native_unit_of_measurement = getattr(state, "tvoc_unit", None)
-            else:
-                if self._attr == "battery_state":
-                    value = getattr(state, self._attr, None)
-                    self._state = list(BATTERY_STATE_LITE.keys())[list(
-                                        BATTERY_STATE_LITE.values()).index(value)]
-                else:
-                    self._state = getattr(state, self._attr, None)
+            self._state = getattr(state, self._attr, None)
 
         except UnboundLocalError:
             pass

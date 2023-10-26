@@ -60,12 +60,12 @@ class AirQualityMonitorStatus:
         return self.data["pm10"]
 
     @property
-    def battery(self) -> bool:
+    def battery(self) -> int:
         """Current battery level (0 ~ 100)."""
         return self.data["battery"]
 
     @property
-    def battery_state(self) -> str:
+    def battery_state(self) -> int:
         """Current battery charing state (1, 2)."""
         return self.data["battery_state"]
 

@@ -13,7 +13,9 @@ Credits: Thanks to [Rytilahti](https://github.com/rytilahti/python-miio) for all
 
 | Name                        | Model                  | Model no. |
 | --------------------------- | ---------------------- | --------- |
-| QingPing Air Quality Monitorr    | cgllc.airmonitor.s1       | |
+| QingPing Air Quality Monitorr | cgllc.airmonitor.s1       | CGLLC |
+| QingPing Air Quality Monitorr LITE | cgllc.airm.cgdn1          | CGDN1 |
+| QingPing Air Quality Monitorr LITE (2022) | cgllc.airm.cgd1st | CDG1ST |
 
 
 ## Install
