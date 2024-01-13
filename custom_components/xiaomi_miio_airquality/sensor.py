@@ -19,6 +19,7 @@ from .const import (
     DOMAIN,
     AIRQUALITY_SENSORS,
     MODELS_ALL_DEVICES,
+    MODELS_MIOT,
     AVAILABLE_FEATURES,
     BATTERY_STATE_LITE,
     XiaomiAirQualitySensorDescription
@@ -137,7 +138,7 @@ class XiaomiAirQualitySensor(SensorEntity):
             if getattr(state, "tvoc_unit", None):
                 self._attr_native_unit_of_measurement = getattr(state, "tvoc_unit", None)
             else:
-                if self._attr == "battery_state":
+                if self._attr == "battery_state" and self._model in MODELS_MIOT:
                     value = getattr(state, self._attr, None)
                     self._state = list(BATTERY_STATE_LITE.keys())[list(
                                         BATTERY_STATE_LITE.values()).index(value)]

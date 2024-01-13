@@ -18,7 +18,7 @@ from homeassistant.const import (
     CONCENTRATION_PARTS_PER_BILLION,
     CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
     PERCENTAGE,
-    TEMP_CELSIUS,
+    UnitOfTemperature,
     ATTR_BATTERY_CHARGING,
     ATTR_BATTERY_LEVEL,
     UnitOfElectricPotential,
@@ -91,6 +91,7 @@ ATTR_COUNT_DOWN = "count_down"
 ATTR_KEEP_RELAY = "keep_relay"
 
 BATTERY_STATE_LITE = {
+    "Charging": 0,
     "Charging": 1,
     "Not charging": 2,
     "Not chargeable": 3
@@ -120,7 +121,7 @@ AIRQUALITY_SENSORS: tuple[XiaomiAirQualitySensorDescription, ...] = (
     XiaomiAirQualitySensorDescription(
         key="temperature",
         name="Temperature",
-        native_unit_of_measurement=TEMP_CELSIUS,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.TEMPERATURE,
         icon="mdi:thermometer"
